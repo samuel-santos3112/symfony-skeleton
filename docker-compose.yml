@@ -1,0 +1,63 @@
+version: '3.3'
+
+services:
+  database:
+    container_name: database
+    hostname: database
+    image: postgres:13.3
+    restart: always
+    ports:
+      - "5439:5432"
+    expose:
+      - "5432"
+    environment:
+      - DOCKER=1
+      - XDEBUG_CONFIG=remote_host=host.docker.internal
+      - POSTGRES_DB=database
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - db_config:/docker-entrypoint-initdb.d/
+    networks:
+      - api_network
+    healthcheck:
+      test: [ "CMD", "pg_isready" ,"-U", "postgres" ]
+      timeout: 5s
+      retries: 20
+
+  php:
+    container_name: php
+    build:
+      context: ./php
+    networks:
+      - api_network
+    ports:
+      - '9000:9000'
+    volumes:
+      - ./app:/var/www/cadastro_api
+    depends_on:
+      - database
+
+  nginx:
+    container_name: nginx
+    image: nginx:stable-alpine
+    networks:
+      - api_network
+    ports:
+      - '8080:80'
+    volumes:
+      - ./app:/var/www/cadastro_api
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - database
+
+networks:
+  api_network:
+    driver: bridge
+
+
+volumes:
+  db_data:
+  db_config:
